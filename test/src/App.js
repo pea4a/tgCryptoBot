@@ -177,7 +177,7 @@ const onClose = () =>{
           value={message}
           onChange={(e) => setMessage(e.target.value)}
         ></textarea>
-        <Button onClick={handleEncrypt}>Encrypt Message</Button>
+        <Button onClick={handleEncrypt}>Encrypt Message </Button>
         
       </div>
       <div>

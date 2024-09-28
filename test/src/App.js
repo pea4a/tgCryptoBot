@@ -1,212 +1,184 @@
-import React, { useEffect, useState } from 'react';
-import {Typography, Button } from '@mui/material';
-const tg = window.Telegram.WebApp;
+import React, { useState, useEffect } from 'react';
+import EC from 'elliptic';
+import CryptoJS from 'crypto-js';
+import messages from './messages';
 
+const ec = new EC.ec('secp256k1');
 
-
-const App = () => {
-  const [publicKeyPem, setPublicKeyPem] = useState('');
-  const [privateKeyPem, setPrivateKeyPem] = useState('');
-  const [message, setMessage] = useState('');
-  const [encryptedMessage, setEncryptedMessage] = useState('');
-  const [decryptedMessage, setDecryptedMessage] = useState('');
-
-useEffect(()=>{
-  tg.ready();
-})
-
-const onClose = () =>{
-  tg.close()
-}
-
-  const generateKeys = async () => {
-    const keys = await generateKeyPair();
-    const publicKeyPem = await exportKey(keys.publicKey, 'publicKey');
-    const privateKeyPem = await exportKey(keys.privateKey, 'privateKey');
-
-    setPublicKeyPem(publicKeyPem);
-    setPrivateKeyPem(privateKeyPem);
-  };
-
-  const handleEncrypt = async () => {
-    const publicKey = await importKey(publicKeyPem, 'publicKey');
-    const { encryptedMessage, encryptedSymmetricKey } = await encryptMessage(publicKey, message);
-    setEncryptedMessage(JSON.stringify({
-      encryptedMessage: arrayBufferToBase64(encryptedMessage),
-      encryptedSymmetricKey: arrayBufferToBase64(encryptedSymmetricKey)
-    }));
-  };
-
-  const handleDecrypt = async () => {
-    const privateKey = await importKey(privateKeyPem, 'privateKey');
-    const { encryptedMessage: encMessage, encryptedSymmetricKey: encSymKey } = JSON.parse(encryptedMessage);
-    const encryptedArrayBuffer = base64ToArrayBuffer(encMessage);
-    const encryptedSymmetricKey = base64ToArrayBuffer(encSymKey);
-    const decrypted = await decryptMessage(privateKey, encryptedArrayBuffer, encryptedSymmetricKey);
-    setDecryptedMessage(decrypted);
-  };
-
-  const arrayBufferToBase64 = (buffer) => {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return window.btoa(binary);
-  };
-
-  const base64ToArrayBuffer = (base64) => {
-    const binary = window.atob(base64);
-    const len = binary.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    return bytes.buffer;
-  };
-
-  const exportKey = async (key, type) => {
-    const exported = await window.crypto.subtle.exportKey(
-      type === 'publicKey' ? 'spki' : 'pkcs8',
-      key
-    );
-    return `-----BEGIN ${type === 'publicKey' ? 'PUBLIC' : 'PRIVATE'} KEY-----\n${arrayBufferToBase64(exported)}\n-----END ${type === 'publicKey' ? 'PUBLIC' : 'PRIVATE'} KEY-----`;
-  };
-
-  const importKey = async (pem, type) => {
-    const binaryDerString = window.atob(pem.replace(/(-----(BEGIN|END) (PUBLIC|PRIVATE) KEY-----|\n)/g, ''));
-    const binaryDer = new Uint8Array([...binaryDerString].map(char => char.charCodeAt(0)));
-    
-    return window.crypto.subtle.importKey(
-      type === 'publicKey' ? 'spki' : 'pkcs8',
-      binaryDer.buffer,
-      {
-        name: "RSA-OAEP",
-        hash: "SHA-256"
-      },
-      true,
-      [type === 'publicKey' ? 'encrypt' : 'decrypt']
-    );
-  };
-
-  const generateSymmetricKey = async () => {
-    return window.crypto.subtle.generateKey(
-      {
-        name: "AES-GCM",
-        length: 256
-      },
-      true,
-      ["encrypt", "decrypt"]
-    );
-  };
-
-  const encryptMessage = async (publicKey, message) => {
-    const symmetricKey = await generateSymmetricKey();
-    const encoder = new TextEncoder();
-    const data = encoder.encode(message);
-
-    const encryptedMessage = await window.crypto.subtle.encrypt(
-      {
-        name: "AES-GCM",
-        iv: new Uint8Array(12) // Initialization vector
-      },
-      symmetricKey,
-      data
-    );
-
-    const exportedSymmetricKey = await window.crypto.subtle.exportKey("raw", symmetricKey);
-    const encryptedSymmetricKey = await window.crypto.subtle.encrypt(
-      {
-        name: "RSA-OAEP"
-      },
-      publicKey,
-      exportedSymmetricKey
-    );
-
-    return { encryptedMessage, encryptedSymmetricKey };
-  };
-
-  const decryptMessage = async (privateKey, encryptedMessage, encryptedSymmetricKey) => {
-    const decryptedSymmetricKey = await window.crypto.subtle.decrypt(
-      {
-        name: "RSA-OAEP"
-      },
-      privateKey,
-      encryptedSymmetricKey
-    );
-
-    const symmetricKey = await window.crypto.subtle.importKey(
-      "raw",
-      decryptedSymmetricKey,
-      {
-        name: "AES-GCM"
-      },
-      false,
-      ["decrypt"]
-    );
-
-    const decryptedMessage = await window.crypto.subtle.decrypt(
-      {
-        name: "AES-GCM",
-        iv: new Uint8Array(12) // Initialization vector
-      },
-      symmetricKey,
-      encryptedMessage
-    );
-
-    const decoder = new TextDecoder();
-    return decoder.decode(decryptedMessage);
-  };
-
-  return (
-    <div>
-      <Button onClick={generateKeys}>Generate Key Pair</Button>
-      <div>
-        <textarea
-          placeholder="Public Key"
-          value={publicKeyPem}
-          onChange={(e) => setPublicKeyPem(e.target.value)}
-        ></textarea>
-        <textarea
-          placeholder="Private Key"
-          value={privateKeyPem}
-          onChange={(e) => setPrivateKeyPem(e.target.value)}
-        ></textarea>
-        <textarea
-          placeholder="Enter message"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-        ></textarea>
-        <Button onClick={handleEncrypt}>Encrypt Message </Button>
-        
-      </div>
-      <div>
-        <textarea
-      
-          placeholder="Encrypted Message"
-          value={encryptedMessage}
-          onChange={(e) => setEncryptedMessage(e.target.value)}
-        ></textarea>
-        <Button onClick={handleDecrypt}>Decrypt Message</Button>
-        <Typography>{decryptedMessage && <div>Decrypted Message: {decryptedMessage}</div>}</Typography>
-      </div>
-
-      <Button onClick={onClose}>close</Button>
-    </div>
-  );
+// Список користувачів із логінами та паролями
+const users = {
+  alice: { password: 'alice123' },
+  bob: { password: 'bob123' },
+  carl: { password: 'carl123' },
 };
 
-async function generateKeyPair() {
-  const keyPair = await window.crypto.subtle.generateKey({
-    name: "RSA-OAEP",
-    modulusLength: 2048,
-    publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
-    hash: { name: "SHA-256" }
-  },
-  true,
-  ["encrypt", "decrypt"]);
+function App() {
+  const [login, setLogin] = useState('');
+  const [password, setPassword] = useState('');
+  const [currentUser, setCurrentUser] = useState(null);
+  const [recipient, setRecipient] = useState('bob');
+  const [message, setMessage] = useState('');
+  const [chatMessages, setChatMessages] = useState(messages);
+  const [userKeys, setUserKeys] = useState({});
 
-  return keyPair;
+  // Ініціалізація ключів при завантаженні
+  useEffect(() => {
+    const storedMessages = JSON.parse(localStorage.getItem('chatMessages')) || [];
+    const storedKeys = JSON.parse(localStorage.getItem('userKeys')) || {};
+
+    // Перевірка, чи пройшла година
+    const now = Date.now();
+    Object.keys(storedKeys).forEach((user) => {
+      if (now - storedKeys[user].timestamp > 3600000) { // 1 година в мілісекундах
+        storedKeys[user].keyPair = ec.genKeyPair();
+        storedKeys[user].timestamp = now;
+      }
+    });
+
+    setUserKeys(storedKeys);
+    setChatMessages(storedMessages);
+  }, []);
+
+  // Авторизація користувача
+  const handleLogin = () => {
+    if (users[login] && users[login].password === password) {
+      // Якщо ключі вже зберігаються, використовуйте їх, інакше створіть нові
+      if (!userKeys[login]) {
+        const keyPair = ec.genKeyPair();
+        userKeys[login] = { keyPair, timestamp: Date.now() };
+        setUserKeys({ ...userKeys });
+        localStorage.setItem('userKeys', JSON.stringify(userKeys));
+      }
+      setCurrentUser(login);
+    } else {
+      alert('Невірний логін або пароль');
+    }
+  };
+
+  // Зміна повідомлення
+  const handleMessageChange = (event) => {
+    setMessage(event.target.value);
+  };
+
+  // Шифрування повідомлення
+  const encryptMessage = (recipient) => {
+    const sender = currentUser;
+    const sharedSecret = userKeys[sender].keyPair.derive(userKeys[recipient].keyPair.getPublic());
+    const sharedSecretHex = sharedSecret.toString(16);
+
+    const encrypted = CryptoJS.AES.encrypt(message, sharedSecretHex).toString();
+    return encrypted;
+  };
+
+  // Дешифрування повідомлення
+  const decryptMessage = (encryptedMessage, sender) => {
+    try {
+      const recipient = currentUser;
+      const sharedSecret = userKeys[recipient].keyPair.derive(userKeys[sender].keyPair.getPublic());
+      const sharedSecretHex = sharedSecret.toString(16);
+
+      const decrypted = CryptoJS.AES.decrypt(encryptedMessage, sharedSecretHex);
+      const originalMessage = decrypted.toString(CryptoJS.enc.Utf8);
+
+      return originalMessage || 'Неможливо розшифрувати повідомлення';
+    } catch (error) {
+      return 'Помилка дешифрування';
+    }
+  };
+
+  // Відправка повідомлення
+  const sendMessage = () => {
+    if (!message) return;
+
+    const encrypted = encryptMessage(recipient);
+    const newMsg = {
+      sender: currentUser,
+      recipient: recipient,
+      message: encrypted,
+      encrypted: true,
+    };
+
+    // Додаємо повідомлення до історії чату
+    const updatedMessages = [...chatMessages, newMsg];
+    setChatMessages(updatedMessages);
+    localStorage.setItem('chatMessages', JSON.stringify(updatedMessages));
+    setMessage('');
+  };
+
+  // Показ повідомлень для поточного користувача
+  const displayMessages = () => {
+    return chatMessages.map((msg, index) => {
+      if (msg.recipient === currentUser) {
+        // Дешифрувати повідомлення для поточного користувача
+        const decrypted = decryptMessage(msg.message, msg.sender);
+        return (
+          <div key={index}>
+            <strong>{msg.sender}:</strong> {decrypted}
+          </div>
+        );
+      } else if (msg.sender === currentUser) {
+        // Якщо це повідомлення від поточного користувача, показати його в оригінальному вигляді
+        return (
+          <div key={index}>
+            <strong>{msg.sender}:</strong> {msg.message}
+          </div>
+        );
+      } else {
+        // Для інших користувачів показати зашифрований текст
+        return (
+          <div key={index}>
+            <strong>{msg.sender}:</strong> <em>Зашифроване повідомлення</em>
+          </div>
+        );
+      }
+    });
+  };
+
+  if (!currentUser) {
+    return (
+      <div>
+        <h1>Авторизація</h1>
+        <input
+          type="text"
+          placeholder="Логін"
+          value={login}
+          onChange={(e) => setLogin(e.target.value)}
+        />
+        <input
+          type="password"
+          placeholder="Пароль"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <button onClick={handleLogin}>Увійти</button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: '20px' }}>
+      <h1>Чат</h1>
+      <div>
+        <h2>Ви увійшли як: {currentUser}</h2>
+        <select value={recipient} onChange={(e) => setRecipient(e.target.value)}>
+          <option value="alice">Аліса</option>
+          <option value="bob">Боб</option>
+          <option value="carl">Карл</option>
+        </select>
+      </div>
+
+      <div>
+        <h2>Повідомлення</h2>
+        <textarea value={message} onChange={handleMessageChange} />
+        <button onClick={sendMessage}>Відправити</button>
+      </div>
+
+      <div>
+        <h2>Чат:</h2>
+        {displayMessages()}
+      </div>
+    </div>
+  );
 }
 
 export default App;

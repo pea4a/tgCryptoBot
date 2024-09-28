@@ -26,10 +26,9 @@ function App() {
     const storedMessages = JSON.parse(localStorage.getItem('chatMessages')) || [];
     const storedKeys = JSON.parse(localStorage.getItem('userKeys')) || {};
 
-    // Перевірка, чи пройшла година
     const now = Date.now();
     Object.keys(storedKeys).forEach((user) => {
-      if (now - storedKeys[user].timestamp > 3600000) { // 1 година в мілісекундах
+      if (now - storedKeys[user].timestamp > 3600000) { // 1 година
         storedKeys[user].keyPair = ec.genKeyPair();
         storedKeys[user].timestamp = now;
       }
@@ -42,7 +41,7 @@ function App() {
   // Авторизація користувача
   const handleLogin = () => {
     if (users[login] && users[login].password === password) {
-      // Якщо ключі вже зберігаються, використовуйте їх, інакше створіть нові
+      // Якщо ключі вже є, використовуємо їх, інакше створюємо нові
       if (!userKeys[login]) {
         const keyPair = ec.genKeyPair();
         userKeys[login] = { keyPair, timestamp: Date.now() };
@@ -63,6 +62,13 @@ function App() {
   // Шифрування повідомлення
   const encryptMessage = (recipient) => {
     const sender = currentUser;
+    
+    // Перевіряємо наявність ключів
+    if (!userKeys[sender] || !userKeys[recipient]) {
+      alert('Неможливо знайти ключі для користувачів');
+      return;
+    }
+
     const sharedSecret = userKeys[sender].keyPair.derive(userKeys[recipient].keyPair.getPublic());
     const sharedSecretHex = sharedSecret.toString(16);
 
@@ -74,6 +80,12 @@ function App() {
   const decryptMessage = (encryptedMessage, sender) => {
     try {
       const recipient = currentUser;
+
+      // Перевіряємо наявність ключів
+      if (!userKeys[recipient] || !userKeys[sender]) {
+        return 'Неможливо знайти ключі для користувачів';
+      }
+
       const sharedSecret = userKeys[recipient].keyPair.derive(userKeys[sender].keyPair.getPublic());
       const sharedSecretHex = sharedSecret.toString(16);
 
@@ -91,6 +103,8 @@ function App() {
     if (!message) return;
 
     const encrypted = encryptMessage(recipient);
+    if (!encrypted) return;
+
     const newMsg = {
       sender: currentUser,
       recipient: recipient,

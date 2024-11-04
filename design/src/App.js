@@ -4,6 +4,7 @@ import CryptoJS from 'crypto-js';
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, set, onValue } from "firebase/database";
 import './App.css';
+import EmailIcon from '@mui/icons-material/Email';
 const ec = new EC.ec('secp256k1');
 
 // Firebase configuration
@@ -21,7 +22,6 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 const users = {
-  Artur: { password: 'pea4a'},
   alice: { password: 'alice123' },
   bob: { password: 'bob123' },
   carl: { password: 'carl123' },
@@ -31,7 +31,7 @@ function App() {
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
-  const [recipient, setRecipient] = useState('');
+  const [recipient, setRecipient] = useState('bob');
   const [message, setMessage] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
   const [userKeys, setUserKeys] = useState({});
@@ -116,7 +116,7 @@ function App() {
     const messagesRef = ref(db, 'messages/' + Date.now());
     set(messagesRef, newMsg);
 
-    setChatMessages(prevMessages => [...prevMessages,]);
+    setChatMessages(prevMessages => [...prevMessages, newMsg]);
     setMessage('');
   };
 
@@ -165,9 +165,7 @@ function App() {
         <div className="messages">
           {displayMessages()}
         </div>
-        
-      </div>
-      <div className="input-container">
+        <div className="input-container">
           <div className="input-fields">
             <input
               type="text"
@@ -182,8 +180,9 @@ function App() {
               onChange={(e) => setRecipient(e.target.value)}
             />
           </div>
-          <button className="send-button" onClick={sendMessage}><span role="img" aria-label="Send message">✉️</span></button>
+          <button className="send-button" onClick={sendMessage}><EmailIcon/></button>
         </div>
+      </div>
     </div>
   );
   

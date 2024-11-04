@@ -36,7 +36,6 @@
     transform: rotate(360deg);
   }
 }
-
 * {
   margin: 0;
   padding: 0;
@@ -153,13 +152,12 @@ body, html {
     font-size: 0.9em;
   }
 }
-
-.chat-container {
+..chat-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 20px;
-  background: linear-gradient(to bottom, #008542, #00a452);
+  background: linear-gradient(to bottom, #002b5b, #00ff7f);
   height: 100vh;
   color: white;
 }
@@ -173,35 +171,34 @@ body, html {
   display: flex;
   flex-direction: column;
   padding: 20px;
-  position: relative;
 }
 
 .messages {
-  color: black;
   flex-grow: 1;
   overflow-y: auto;
   margin-bottom: 10px;
-  max-height: 100%;
+}
+
+.message-bubble {
+  background-color: #20c997;
+  color: black;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 15px;
 }
 
 .input-container {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-top: 10px;
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  padding: 10px;
-  background-color: #fff;
-  box-shadow: 0px -2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .input-fields {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  width: 75%; /* Додаємо більше простору для полів введення */
+  width: 70%;
 }
 
 .input-fields input[type="text"] {
@@ -215,13 +212,13 @@ body, html {
 
 .send-button {
   background-color: #1ad636;
-  padding: 10px;
+  padding: 10px 20px;
   border: none;
   border-radius: 10px;
   color: black;
   cursor: pointer;
-  width: 22%; /* Обмежуємо ширину кнопки */
-  height: auto; /* Забезпечує автоматичну висоту */
+  width: 25%;
+  height: 100%;
 }
 
 .send-button:hover {
